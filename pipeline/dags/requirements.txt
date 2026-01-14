@@ -1,0 +1,10 @@
+pydantic<2
+apache-airflow-providers-cncf-kubernetes
+apache-airflow-providers-openlineage>=1.8.0
+pyathena
+scikit-learn
+pandas==2.1.0
+confluent-kafka
+google-re2==1.0
+s3fs
+

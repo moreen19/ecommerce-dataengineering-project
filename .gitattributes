@@ -1,0 +1,7 @@
+# Force shell scripts to always use LF (Linux line endings)
+*.sh text eol=lf
+
+# Force python and dbt files to normalize
+*.py text
+*.yml text
+*.sql text

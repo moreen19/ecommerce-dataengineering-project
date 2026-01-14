@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: ecommerce_data_lake
+    schema: ecommerce_data_lake
+    tables:
+      - name: purchases_iceberg
+        identifier: purchases_iceberg
+        quoting:
+          identifier: false
+

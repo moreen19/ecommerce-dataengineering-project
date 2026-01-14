@@ -1,0 +1,182 @@
+x-airflow-common: &airflow-common
+  build:
+    context: ./pipeline
+    dockerfile: airflow/Dockerfile
+  restart: on-failure:5
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: 'postgresql+psycopg2://airflow:airflow@postgres/airflow'
+    AIRFLOW__CORE__FERNET_KEY: 'ujU7v6pL2_oH9S7R_X_pM1Q9z_L8vBvO5pL8Z8X9kY0='
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_WEBSERVER_SECRET_KEY}
+    AIRFLOW_HOME: /opt/airflow
+    AWS_DEFAULT_REGION: ${AWS_REGION}
+    AWS_REGION: ${AWS_REGION}
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    DOCKER_HOST: unix:///var/run/docker.sock
+  networks:
+    - default
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+
+  # 1. Spark container (idle, for batch/streaming scripts)
+  spark-consumer:
+    build:
+      context: .
+      dockerfile: pipeline/spark/Dockerfile
+    container_name: spark-consumer
+    environment:
+      SPARK_LOCAL_DIRS: /tmp
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_REGION: ${AWS_REGION}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+    volumes:
+      - ./pipeline/spark:/opt/spark/work-dir
+    command: tail -f /dev/null
+
+  # 2. Spark + dbt + Thrift Server (Glue + Iceberg)
+  spark-dbt:
+    build:
+      context: .
+      dockerfile: spark-dbt/Dockerfile
+    container_name: spark-dbt
+    entrypoint: []
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: us-east-2
+      SPARK_NO_DAEMONIZE: "true"
+    ports:
+      - "10000:10000"
+      - "4040:4040"
+    volumes:
+      - ./pipeline/dbt/ecommerce_analytics:/opt/dbt/ecommerce_analytics
+
+    command: >
+      bash -lc "
+      mkdir -p /opt/dbt/ecommerce_analytics/logs &&
+      /opt/spark/bin/spark-submit
+      --master 'local[*]'
+      --conf spark.driver.extraJavaOptions='-Djava.net.preferIPv4Stack=true'
+      --conf spark.executor.extraJavaOptions='-Djava.net.preferIPv4Stack=true'
+      --class org.apache.spark.sql.hive.thriftserver.HiveThriftServer2
+      --conf spark.sql.hive.thriftserver.single.session=true
+      --conf spark.sql.catalog.glue.default-namespace=ecommerce_data_lake
+      --conf spark.hadoop.aws.region=us-east-2
+      --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+      --conf spark.sql.catalog.glue=org.apache.iceberg.spark.SparkCatalog
+      --conf spark.sql.catalog.glue.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog
+      --conf spark.sql.catalog.glue.warehouse=s3://de-ecommerce-lake-2025-moeandy/
+      --conf spark.sql.catalog.glue.io-impl=org.apache.iceberg.aws.s3.S3FileIO
+      --conf spark.sql.defaultCatalog=glue
+      spark-internal
+      "
+  postgres:
+    image: postgres:13
+    container_name: postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - airflow-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        echo "Waiting for database to be ready..."
+        sleep 5
+        echo "Database connection: $${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}"
+        echo "Running database migration..."
+        airflow db init &&
+        echo "Creating admin user..."
+        airflow users create \
+          --username admin \
+          --password password \
+          --firstname Admin \
+          --lastname Admin \
+          --role Admin \
+          --email admin@example.com || echo "Admin user already exists"
+        echo "Checking database connection..."
+        airflow db check
+        echo "Database initialization complete!"
+    restart: "no"
+
+  # 4. Airflow Webserver
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver
+    user: "root"
+    restart: on-failure:5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    command: webserver
+    volumes:
+      - ./pipeline/dags:/opt/airflow/dags
+      - ./pipeline/airflow/logs:/opt/airflow/logs
+      - ./pipeline/airflow/plugins:/opt/airflow/plugins
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # 5. Airflow Scheduler
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    user: "root"
+    restart: on-failure:5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    command: scheduler
+    volumes:
+      - ./pipeline/dags:/opt/airflow/dags
+      - ./pipeline/airflow/logs:/opt/airflow/logs
+      - ./pipeline/airflow/plugins:/opt/airflow/plugins
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # 6. Elasticsearch (optional)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.16
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+
+volumes:
+  airflow-db-data:
+
+networks:
+  default:

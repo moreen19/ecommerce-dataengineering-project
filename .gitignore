@@ -1,0 +1,32 @@
+# AWS & Local Secrets
+.env
+profiles.yml
+*.pem
+credentials
+.aws/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+
+# dbt & Spark Junk
+target/
+dbt_packages/
+logs/
+*.db
+spark-events/
+metastore_db/
+derby.log
+**/.user.yml
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.pytest_cache/
+
+# Ignore JAR files
+*.jar

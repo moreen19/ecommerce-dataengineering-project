@@ -1,0 +1,87 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>local</groupId>
+  <artifactId>iceberg-aws-bundle</artifactId>
+  <version>1.0.0</version>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.iceberg</groupId>
+      <artifactId>iceberg-spark-runtime-3.4_2.12</artifactId>
+      <version>1.4.3</version>
+    </dependency>
+
+    
+
+    <dependency>
+      <groupId>org.apache.iceberg</groupId>
+      <artifactId>iceberg-aws</artifactId>
+      <version>1.4.3</version>
+    </dependency>
+
+
+
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-aws</artifactId>
+      <version>3.3.4</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.delta</groupId>
+      <artifactId>delta-core_2.12</artifactId>
+      <version>2.4.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.delta</groupId>
+      <artifactId>delta-storage</artifactId>
+      <version>2.4.0</version>
+    </dependency>
+    
+
+    <!-- AWS SDK v2 dependencies required by Iceberg GlueCatalog -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>glue</artifactId>
+      <version>2.20.40</version>
+    </dependency>
+
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+      <version>2.20.40</version>
+    </dependency>
+
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>sts</artifactId>
+      <version>2.20.40</version>
+    </dependency>
+
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>auth</artifactId>
+      <version>2.20.40</version>
+    </dependency>
+
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId> 
+      <artifactId>kms</artifactId> 
+      <version>2.20.40</version> 
+    </dependency>
+
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>dynamodb</artifactId>
+      <version>2.20.40</version>
+    </dependency>
+
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>cloudwatch</artifactId>
+      <version>2.20.40</version>
+    </dependency>
+
+  </dependencies>
+</project>

@@ -1,0 +1,17 @@
+ecommerce_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: spark
+      method: thrift
+      host: 127.0.0.1    # Use 0.0.0.0 to ensure it hits the container's interface
+      port: 10000
+      schema: ecommerce_data_lake
+      thrift_transport: binary
+      auth: NONE           # Crucial: bypasses the SASL handshake issues
+      connect_timeout: 60
+      connect_retries: 3
+      retry_all: true
+   
+    
+      

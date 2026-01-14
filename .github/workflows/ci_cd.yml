@@ -33,7 +33,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }} # Pulling from GitHub Variables
-      
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -48,9 +48,15 @@ jobs:
           pip install dbt-core==1.5.3
           pip install dbt-spark[pyspark]==1.5.3
 
-      - name: dbt Debug
-        # Points to your existing folder structure
-        run: dbt debug --project-dir ./dbt/ecommerce_analytics --profiles-dir .
+      - name: dbt debug
+        run: |
+          cd pipeline/dbt/ecommerce_analytics
+          dbt debug --profiles-dir profiles
+      
+      
 
       - name: dbt Compile
-        run: dbt compile --project-dir ./dbt/ecommerce_analytics --profiles-dir .
+        run:
+          cd pipeline/dbt/ecommerce_analytics
+          dbt compile --profiles-dir profiles
+     

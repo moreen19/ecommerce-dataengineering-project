@@ -51,13 +51,6 @@ jobs:
           pip install "dbt-core==1.5.3" "dbt-spark[PyHive]==1.5.3"
           
 
-      - name: dbt debug
-        run: |
-          cd pipeline/dbt/ecommerce_analytics
-          dbt debug --profiles-dir profiles
-      
-      
-
       - name: dbt Parse (Validation Only)
         run: |
           cd pipeline/dbt/ecommerce_analytics
